@@ -10,6 +10,8 @@
 import { uploadToScaleXFromPathWithProgress, uploadToScaleXWithProgress } from './scalexUploadWithProgress';
 
 export * from './scalexUploadWithProgress';
+export * from './compositionMatch';
+export type { ScaleXWarehouseComponent } from './scalexClient';
 
 export async function uploadPrintJobWithProgress(args: {
   hostUrl: string;

@@ -191,6 +191,70 @@ export function isScaleXUploadError(status: ScaleXUploadStatus): boolean {
   return status.state === 'failed' || status.state === 'error' || status.state === 'cancelled';
 }
 
+export type ScaleXWarehouseComponent = {
+  id: string | number;
+  code?: string;
+  name?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * GET /api/warehouse — the farm's stock components (id/code/name). Feeds
+ * the CTB composition feature (see `compositionMatch.ts`): plate model
+ * names get matched against these to auto-fill a file's composition for
+ * warehouse stock tracking. Ported from own_manager.py's
+ * fetch_warehouse_components().
+ */
+export async function fetchScaleXWarehouseComponents(
+  host: string,
+  port: number,
+  timeoutMs = 10000,
+): Promise<ScaleXWarehouseComponent[]> {
+  const response = await scalexFetch(host, port, '/api/warehouse', { method: 'GET', headers: { Accept: 'application/json' } }, timeoutMs);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const decoded = await response.json().catch(() => null);
+  const components = decoded && typeof decoded === 'object' ? (decoded as Record<string, unknown>).components : null;
+  return Array.isArray(components) ? (components as ScaleXWarehouseComponent[]) : [];
+}
+
+/**
+ * PUT /api/warehouse/ctb-mappings — `{file_name, component_quantities:
+ * [{component_id, quantity}]}`. This REPLACES whatever composition ScaleX
+ * already has for this file name, so callers must only invoke this with a
+ * genuinely non-empty `componentQuantities` — an accidental empty write
+ * here would silently wipe out a real composition an operator assigned by
+ * hand through ScaleX's own UI. Ported from own_manager.py's
+ * save_ctb_composition().
+ */
+export async function saveScaleXCtbComposition(
+  host: string,
+  port: number,
+  fileName: string,
+  componentQuantities: Array<{ componentId: string | number; quantity: number }>,
+  timeoutMs = 15000,
+): Promise<void> {
+  const response = await scalexFetch(
+    host,
+    port,
+    '/api/warehouse/ctb-mappings',
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        file_name: fileName,
+        component_quantities: componentQuantities.map((q) => ({ component_id: q.componentId, quantity: q.quantity })),
+      }),
+    },
+    timeoutMs,
+  );
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new Error(`HTTP ${response.status}: ${body.slice(0, 300)}`);
+  }
+}
+
 /**
  * POST /api/printers/{id}/stored-files/start — the two-step "start once an
  * operator confirms preparation" mechanism. Only used when a start was

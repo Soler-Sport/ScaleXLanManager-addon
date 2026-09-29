@@ -6,17 +6,17 @@ import type {
 /**
  * ScaleX LAN Manager network adapter.
  *
- * `materials`/`materialsEdit` are repurposed as the *printer* picker (see
- * `network/handlers/printers.ts` for the full rationale): ScaleX manages a
- * farm of printers behind one host:port, but this contract only gives a
- * complex plugin one per-job pick, and that's the one, so each entry
- * returned by `materials` is a ScaleX-managed printer, not an on-device
- * material profile.
+ * ScaleX manages a farm of printers behind one host:port and adapts the
+ * uploaded file to whichever printer receives it, so DragonFruit keeps its
+ * standard local material menu (`supportsRemoteMaterialProfiles: false`) and
+ * never loads per-printer profiles from the manager. The target farm printer
+ * is chosen at send time in the Printing panel and travels through the
+ * upload contract's `profileId` slot; `scalex/printers/list` (still wired to
+ * `materials` below, as the contract requires) only feeds that picker.
  *
- * ScaleX has no API to edit those remotely, hence
- * `remoteMaterialEditingWipNotice` below and the primary/basic/advanced
- * edit-field arrays staying empty — `RemoteMaterialSettingsAdapter` still
- * requires the shape, but there is nothing to edit.
+ * ScaleX has no API to edit printer settings remotely, hence the empty
+ * primary/basic/advanced edit-field arrays — the adapter shape is still
+ * required, but there is nothing to edit.
  */
 const SCALEX_NETWORK_ADAPTER: PluginNetworkUiAdapterContract = {
   mode: 'scalex',
@@ -30,7 +30,11 @@ const SCALEX_NETWORK_ADAPTER: PluginNetworkUiAdapterContract = {
     materialsEdit: 'scalex/printers/edit',
   },
   defaultLocalHostnames: ['scalex.local', 'scalex-lan-manager.local', 'printfarm.local'],
-  supportsRemoteMaterialProfiles: true,
+  // ScaleX adapts the sliced file to whichever farm printer receives it, so
+  // DragonFruit keeps its own standard (local) material menu and never loads
+  // per-printer profiles from the manager. The target farm printer is chosen
+  // at send time instead (see the printer picker in the Printing panel).
+  supportsRemoteMaterialProfiles: false,
   remoteMaterialEditingWipNotice:
     "This list is the farm's printers, not on-device material profiles — ScaleX doesn't expose profile editing over its API, so Edit is unavailable here.",
   primaryEditFields: [],
@@ -57,6 +61,10 @@ export const SCALEX_LAN_MANAGER_PLUGIN_DEFINITION: ComplexPluginDefinition = {
   capabilities: {
     networkOperations: true,
     uploadWithProgress: true,
+    // The desktop app routes every plugin network call through Rust (there is
+    // no HTTP fallback inside Tauri), so this plugin ships rust/plugin.rs +
+    // rust/network.rs mirroring network/handlers/*.ts. See rust/network.rs.
+    tauriRuntimePlugin: true,
   },
   networkAdaptersByMode: {
     [SCALEX_NETWORK_ADAPTER.mode]: SCALEX_NETWORK_ADAPTER,

@@ -1,3 +1,4 @@
+import { handleScaleXCompositionSave, handleScaleXCompositionWarehouse } from './composition';
 import { handleScaleXConnect } from './connect';
 import { handleScaleXDiscover } from './discover';
 import { handleScaleXPrinterEdit, handleScaleXPrinterList } from './printers';
@@ -20,5 +21,7 @@ export async function dispatchScaleXOperation(op: string, payload: unknown): Pro
   if (op === 'printers/edit') return handleScaleXPrinterEdit();
   if (op === 'upload/start') return handleScaleXUploadStart(payload);
   if (op === 'upload/progress') return handleScaleXUploadProgress(payload);
+  if (op === 'composition/warehouse') return handleScaleXCompositionWarehouse(payload);
+  if (op === 'composition/save') return handleScaleXCompositionSave(payload);
   return null;
 }
